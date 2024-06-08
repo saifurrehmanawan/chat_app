@@ -1,7 +1,7 @@
 import os
 import pathlib
 import textwrap
-import streamlit
+import streamlit as st
 
 import google.generativeai as genai
 
