@@ -1,76 +1,49 @@
-import streamlit as st
-from agents import LANG_APP
 import os
-import time
-import google.api_core.exceptions
+import pathlib
+import textwrap
 
-lang_app = LANG_APP()
+import google.generativeai as genai
 
-# App title
-st.set_page_config(page_title="🦙💬 Llama 2 Chatbot")
+from IPython.display import display
+from IPython.display import Markdown
 
+api_key = os.getenv('MY_API_KEY')
 
-st.write("""
-### Instructions for Creating Your Bot Profile
+genai.configure(api_key=api_key)
 
-1. **Enter Attributes for the Bot**:
-    - **Name**: Provide the name you want for your bot.
-    - **Age**: Specify the age of your bot.
-    - **Nationality**: Indicate the nationality of your bot.
-    - **Native Language**: State the native language of your bot.
-    - **Other Languages**: List any additional languages your bot can understand or speak.
-    - **Additional Attributes (if any)**: Include any other relevant attributes you want to provide.
+class LANG_APP:
+  def __init__(self):
+    self.model = genai.GenerativeModel('models/gemini-1.5-flash-latest')
+    self.chat = self.model.start_chat(history=[])
 
-This information will be used to create your personalized bot profile.
-""")
+  def Character_Development_Agent(self, attributes):
+    instructions =f""" you are the Character Development Agent and you are asigned to generate detailed and realistic character profiles of a person:
+      goals = 1. To generate detailed and realistic character profile of a person: {attributes} that can be used for various purposes, such as in storytelling, market research, psychological studies, or simulation models."
+              "2. To provide a diverse array of character attributes to meet the needs of different clients or projects."
+              "3. To ensure that the character profile is unique and comprehensive, adding depth and realism to any application."
+              "4. Finally return only the json file."""
 
-# Take user input for name
-attribute = st.text_input("Please provide a description of the bot you envision:")
-if attribute:
-    response = lang_app.Character_Development_Agent(attribute)
+    response = self.model.generate_content(instructions)
+    return response.text
 
-    if response:
+  def chat_w(self, query, response):
 
-        st.empty()  # Clear the screen
+    int = f"""
+    role=" you are the Cultural and Language Learning Impersonation Agent",
+    goal="1. To help users improve their language skills and understanding of different cultures through realistic and interactive conversations based on the profile {response}."
+        "2. Response the user message {query}."
+        "3. To provide an engaging and authentic experience that enhances users' confidence and proficiency in a new language."
+        "4. To promote cultural awareness and appreciation by sharing insights and experiences as the portrayed character.",
 
-        # Store LLM generated responses
-        if "messages" not in st.session_state.keys():
-            st.session_state.messages = [{"role": "assistant", "content": "How may I assist you today?"}]
+    backstory = "1. Embody and accurately portray the attributes of a hypothetical person as described in a given profile {response}."
+                "2. Engage in conversations to assist users in language learning and cultural exchange."
+                "3. Provide realistic, immersive interactions that help users practice language skills and learn about different cultures."
+                "4. Your responses should be in the user's native language instead of English."
+                "5. Please respond using plain, conversational language without repeating the user's exact words."
+                "6. If you're unable to comprehend the user's text, feel free to express that you don't understand.",
+                "7, If a user is attempting to harass, discuss sexuality, or ask for sensitive information, redirect the conversation to another topic. Ensure that you remain respectful throughout the interaction."
+                """
+    response = self.chat.send_message(int, safety_settings={'HARASSMENT':'block_none', 'HATE_SPEECH':'block_none', 'SEX':'block_none', 'DANGEROUS':'block_none'})
+    return response.text
 
-        # Display or clear chat messages
-        for message in st.session_state.messages:
-            with st.chat_message(message["role"]):
-                st.write(message["content"])
-
-        def clear_chat_history():
-            st.session_state.messages = [{"role": "assistant", "content": "How may I assist you today?"}]
-        st.sidebar.button('Clear Chat History', on_click=clear_chat_history)
-
-        # User-provided prompt
-        if prompt := st.chat_input():
-            st.session_state.messages.append({"role": "user", "content": prompt})
-            with st.chat_message("user"):
-                st.write(prompt)
-
-        # Generate a new response if last message is not from assistant
-        if st.session_state.messages[-1]["role"] != "assistant":
-            with st.chat_message("assistant"):
-                with st.spinner("Thinking..."):
-                    i = 0
-                    while i == 0:
-                            try:
-                                answer = lang_app.chat_w(prompt, response)
-                                i = 1
-            
-                            except google.api_core.exceptions.InternalServerError as e:
-                                print(f"InternalServerError: {e}. Retrying in 30 seconds...")
-                                time.sleep(30)
-
-                    placeholder = st.empty()
-                    full_response = ''
-                    for item in answer:
-                        full_response += item
-                        placeholder.markdown(full_response)
-                    placeholder.markdown(full_response)
-            message = {"role": "assistant", "content": full_response}
-            st.session_state.messages.append(message)
+  
